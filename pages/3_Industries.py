@@ -9,8 +9,7 @@ from src.common import OI, footer, pct, setup
 
 size, country, sector, refresh, eu_all, years = setup("Who has adopted AI?")
 
-st.caption("Who has adopted AI? · Industries")
-st.divider()
+st.caption("Who has adopted AI?  /  Industry intelligence")
 st.header("3 · Which industries have adopted AI?")
 
 sec_years = sorted(int(y) for y in sector["year"].unique())
@@ -18,25 +17,42 @@ latest_year = sec_years[-1]
 compare_years = [y for y in sec_years if y != latest_year]
 
 st.markdown(
-    "AI adoption has risen in many industries, but **the level of adoption remains uneven**. "
-    "Use the 2025 ranking to find leaders and laggards, then compare it with an earlier survey year."
+    "**The story:** AI adoption is rising across European industries, but the level of uptake "
+    "remains uneven. Explore who leads, how the gap evolved and where a policy adviser might "
+    "investigate barriers."
 )
 
-base_year = st.radio(
-    "Earlier year to compare with 2025",
-    compare_years,
-    index=0,
-    horizontal=True,
-    key="sector_base",
-)
-all_sectors = sorted(sector["sector"].unique())
-selected_sectors = st.multiselect(
-    "Industries to display",
-    options=all_sectors,
-    default=all_sectors,
-    key="sector_selected",
-    help="Deselect all to see the empty-state message, or select the sectors you want to compare.",
-)
+with st.container(border=True):
+    left, right = st.columns(2, gap="large")
+    with left:
+        base_year = st.radio(
+            "Compare with 2025",
+            compare_years,
+            index=0,
+            horizontal=True,
+            key="sector_base",
+        )
+    with right:
+        all_sectors = sorted(sector["sector"].unique())
+        focus_sector = st.selectbox(
+            "Industry spotlight",
+            options=all_sectors,
+            index=all_sectors.index("Information and communication")
+            if "Information and communication" in all_sectors else 0,
+            key="sector_focus",
+        )
+    with st.expander("Refine the industry comparison", expanded=False):
+        selected_sectors = st.multiselect(
+            "Industries to include in rankings, changes and heatmap",
+            options=all_sectors,
+            default=all_sectors,
+            key="sector_selected",
+            help="Clear the list to see the empty-filter message.",
+        )
+    st.caption(
+        f"Showing {len(selected_sectors)} of {len(all_sectors)} industries. "
+        "The spotlight is independent of this comparison filter."
+    )
 
 current = sector[
     (sector["year"] == latest_year) & sector["sector"].isin(selected_sectors)
@@ -47,10 +63,11 @@ comparison = sector[
 ].copy()
 
 st.caption(
-    f"Source: Eurostat isoc_eb_ain2; EU27, enterprises with 10 or more persons employed, "
-    f"excluding financial services. Survey years: {base_year} and {latest_year}. "
-    "Unit: % of enterprises within each industry using at least one AI technology. "
-    "The percentages are separate denominators, not shares that add to 100%."
+    f"**Source:** Eurostat `isoc_eb_ain2`, EU27 aggregate, enterprises with 10+ persons "
+    "employed, excluding financial services. **Measure:** firms using at least one AI "
+    f"technology (% of firms in each industry). **Survey observations:** "
+    f"{', '.join(str(y) for y in sec_years)}; 2022 is not available. "
+    "Industry percentages have separate denominators and must not be added together."
 )
 
 if not selected_sectors or current.empty or comparison.empty:
@@ -59,6 +76,83 @@ else:
     order = current["sector"].tolist()
     top = current.iloc[0]
     bottom = current.iloc[-1]
+    difference = float(top["pct_enterprises"] - bottom["pct_enterprises"])
+    history = sector[sector["sector"].isin(selected_sectors)].pivot(
+        index="sector", columns="year", values="pct_enterprises"
+    )
+    gains = (history[latest_year] - history[sec_years[0]]).dropna().sort_values(
+        ascending=False
+    )
+    st.subheader(f"At a glance · {latest_year}")
+    m1, m2, m3, m4 = st.columns(4, gap="small")
+    with m1:
+        st.metric("Highest adoption", pct(float(top["pct_enterprises"])))
+        st.caption(top["sector"])
+    with m2:
+        st.metric("Lowest adoption", pct(float(bottom["pct_enterprises"])))
+        st.caption(bottom["sector"])
+    with m3:
+        st.metric("Highest–lowest gap", f"{difference:.2f} pp")
+        st.caption(f"Among {len(current)} selected industries")
+    with m4:
+        if not gains.empty:
+            st.metric(f"Largest gain since {sec_years[0]}", f"+{gains.iloc[0]:.2f} pp")
+            st.caption(gains.index[0])
+        else:
+            st.metric("Largest gain", "N/A")
+            st.caption("Comparable observations unavailable")
+
+    st.caption(
+        "All four metrics use the selected industries. Differences are percentage points "
+        "(pp), not relative percentage changes."
+    )
+
+    st.subheader("Adoption landscape · All survey years")
+    st.caption(
+        "**Visual Vocabulary: heatmap / magnitude.** Each cell shows the percentage "
+        "of firms using AI in that industry and survey year; every number is printed. "
+        "Survey years are discrete observations, not a continuous annual series."
+    )
+    landscape = sector[sector["sector"].isin(selected_sectors)].copy()
+    landscape["survey_year"] = landscape["year"].astype(str)
+    ceiling = max(70, int(sector["pct_enterprises"].max() + 10))
+    heat_base = alt.Chart(landscape).encode(
+        x=alt.X(
+            "survey_year:O",
+            sort=[str(y) for y in sec_years],
+            title="Survey year",
+            axis=alt.Axis(labelAngle=0),
+        ),
+        y=alt.Y(
+            "sector:N", sort=order, title=None,
+            axis=alt.Axis(labelLimit=310, labelFontSize=12),
+        ),
+    )
+    cells = heat_base.mark_rect(stroke="#101820", strokeWidth=3).encode(
+        color=alt.Color(
+            "pct_enterprises:Q", title="AI adoption (%)",
+            scale=alt.Scale(
+                domain=[0, ceiling],
+                range=["#263547", "#235873", "#0B6A8B", "#0072B2"],
+            ),
+        ),
+        tooltip=[
+            alt.Tooltip("sector:N", title="Industry"),
+            alt.Tooltip("year:O", title="Year"),
+            alt.Tooltip("pct_enterprises:Q", title="AI adoption (%)", format=".2f"),
+        ],
+    )
+    cell_values = heat_base.mark_text(
+        color="#F5F5F5", fontSize=12, fontWeight="bold"
+    ).encode(text=alt.Text("pct_enterprises:Q", format=".2f"))
+    st.altair_chart(
+        (cells + cell_values).properties(
+            height=max(320, len(order) * 36),
+            title="EU27 · Industry AI adoption by survey year (%)",
+        ),
+        width="stretch",
+    )
+
     st.markdown(
         f"**Among the {len(current)} selected industries in {latest_year}:** "
         f"{top['sector']} led at **{pct(float(top['pct_enterprises']))}**, "
@@ -135,6 +229,70 @@ else:
             f"**Example of change:** {leader} moved from **{pct(float(leader_pair.loc[base_year]))}** "
             f"in {base_year} to **{pct(float(leader_pair.loc[latest_year]))}** in {latest_year} "
             f"({change:+.2f} percentage points)."
+        )
+
+st.subheader("Industry spotlight · Trace one industry over time")
+spotlight = sector[sector["sector"] == focus_sector].sort_values("year")
+latest_spotlight = spotlight[spotlight["year"] == latest_year]
+first_spotlight = spotlight[spotlight["year"] == sec_years[0]]
+if spotlight.empty or latest_spotlight.empty:
+    st.info("No survey observations are available for the chosen industry.")
+else:
+    rate_now = float(latest_spotlight.iloc[0]["pct_enterprises"])
+    all_latest = sector[sector["year"] == latest_year]
+    position = int((all_latest["pct_enterprises"] > rate_now).sum() + 1)
+    summary = (
+        f"**{focus_sector}** ranked **{position} of {len(all_latest)}** EU industries "
+        f"in {latest_year}, with **{pct(rate_now)}** adoption."
+    )
+    if not first_spotlight.empty:
+        rate_first = float(first_spotlight.iloc[0]["pct_enterprises"])
+        summary += (
+            f" Since {sec_years[0]}, adoption changed by "
+            f"**{rate_now - rate_first:+.2f} percentage points**."
+        )
+    st.markdown(summary)
+    focus_max = min(100, max(15, float(spotlight["pct_enterprises"].max()) + 12))
+    focus_x = alt.X(
+        "year:Q", title="Survey year",
+        scale=alt.Scale(domain=[sec_years[0], latest_year]),
+        axis=alt.Axis(values=sec_years, format="d"),
+    )
+    focus_y = alt.Y(
+        "pct_enterprises:Q", title="Businesses using AI (%)",
+        scale=alt.Scale(domain=[0, focus_max]),
+    )
+    focus_chart = alt.Chart(spotlight).encode(x=focus_x, y=focus_y)
+    trend_line = focus_chart.mark_line(color=OI["sky"], strokeWidth=3)
+    trend_points = focus_chart.mark_point(
+        filled=True, color=OI["vermillion"], size=130, shape="diamond"
+    )
+    trend_labels = focus_chart.mark_text(
+        dy=-17, color="#F5F5F5", fontSize=12, fontWeight="bold"
+    ).encode(text=alt.Text("pct_enterprises:Q", format=".2f"))
+    st.altair_chart(
+        (trend_line + trend_points + trend_labels).properties(
+            height=250,
+            title=f"{focus_sector} · AI adoption by survey year (%)",
+        ),
+        width="stretch",
+    )
+    st.caption(
+        "The x-axis reflects the actual year intervals, including the two-year gap "
+        "from 2021 to 2023. No intervening annual observations are implied."
+    )
+
+with st.container(border=True):
+    st.subheader("What this means for policy")
+    if current.empty:
+        st.write("Select industries above to explore where adoption barriers may warrant study.")
+    else:
+        st.markdown(
+            f"For **Maya**, the **{bottom['sector'].lower()}** sector's "
+            f"**{pct(float(bottom['pct_enterprises']))}** adoption rate in {latest_year} "
+            "makes it a candidate for investigating possible barriers to adoption. "
+            "This does not show that subsidies, training or other interventions "
+            "would necessarily work."
         )
 
 st.caption(
