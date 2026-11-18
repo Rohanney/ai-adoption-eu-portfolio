@@ -75,7 +75,7 @@ else:
         x=alt.X("pct_enterprises:Q", title="Businesses using at least one AI technology (%)", scale=xscale),
     )
     bars = base_rank.mark_bar(color=OI["blue"], size=20)
-    value_labels = base_rank.mark_text(align="left", dx=7, fontSize=12, color="#222222").encode(
+    value_labels = base_rank.mark_text(align="left", dx=7, fontSize=12, color="#F5F5F5").encode(
         text=alt.Text("pct_enterprises:Q", format=".2f")
     )
     st.altair_chart(
@@ -114,10 +114,10 @@ else:
         ),
     )
     earlier_labels = alt.Chart(comparison[comparison["year"] == base_year]).mark_text(
-        dy=-13, fontSize=11, color="#222222"
+        dy=-13, fontSize=11, color="#F5F5F5"
     ).encode(y=common_y, x=common_x, text=alt.Text("pct_enterprises:Q", format=".2f"))
     latest_labels = alt.Chart(comparison[comparison["year"] == latest_year]).mark_text(
-        dy=15, fontSize=11, fontWeight="bold", color="#222222"
+        dy=15, fontSize=11, fontWeight="bold", color="#F5F5F5"
     ).encode(y=common_y, x=common_x, text=alt.Text("pct_enterprises:Q", format=".2f"))
     st.altair_chart(
         (lines + points + earlier_labels + latest_labels).properties(
