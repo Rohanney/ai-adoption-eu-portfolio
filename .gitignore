@@ -1,0 +1,18 @@
+# Python cache and environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.*
+
+# OS, IDE and test cache
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.pytest_cache/
+.coverage
+
+# Local outputs (the curated data/processed CSVs remain tracked)
+.streamlit/secrets.toml
