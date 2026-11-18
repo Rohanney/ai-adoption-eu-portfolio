@@ -47,3 +47,11 @@ The first command reads the bundled original Eurostat CSVs and regenerates all f
 - Check page load under 5 seconds and UI interaction latency around 1 second from the deployed URL.
 - Confirm the group's actual CSV download dates, verify the other members' provenance rows, and agree on the final commit or release tag.
 - Do not treat this local copy as the assessed version until the changes are merged into the **existing group repository** and the deployed app is updated from that commit.
+
+## Industry intelligence enhancement — 18 November 2026
+
+The Member 3 page now includes four directly labelled chart views: a **2021/2023/2024/2025 heatmap** (44 cells for 11 industries), a **2025 ranking**, a **selected earlier year versus 2025 connected-dot comparison**, and an **individual industry trend** using actual year spacing. The KPI strip reports the top and bottom industry, their percentage-point difference and the largest observed 2021–2025 increase. Both the ranking and heatmap change when industries are filtered. The spotlight is deliberately independent of the comparison filter.
+
+All computed statistics use the same version-controlled `data/processed/adoption_by_sector.csv` source that the four local tests already check against raw Eurostat records. The following derived 2025 KPI values were recomputed from that CSV: Information and communication **62.52%**, construction **10.79%**, their gap **51.73 percentage points**, and the largest 2021–2025 increase **+37.15 percentage points** (information and communication). The four heatmap colours (`#263547`, `#235873`, `#0B6A8B`, `#0072B2`) yield white-on-colour contrast ratios of approximately **12.48, 7.74, 6.09 and 5.19** respectively, providing redundant printed values in addition to colour.
+
+The heatmap's discrete survey years do not imply a 2022 observation. The spotlight x-axis is quantitative in calendar years, so the 2021–2023 span is visibly twice a single-year interval. The policy text recommends *investigating* lower adoption, rather than claiming a measured causal effect. The deployed visual layout, interactions and page load times must still be checked separately, since static code/data tests cannot certify them.
